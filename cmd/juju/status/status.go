@@ -162,8 +162,8 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display timestamps in the UTC timezone")
 
-	f.BoolVar(&c.color, "color", false, "Use ANSI color codes in tabular output")
-	f.BoolVar(&c.noColor, "no-color", false, "Disable ANSI color codes in tabular output")
+	f.BoolVar(&c.color, "color", c.terminalAllowsColor(), "Use ANSI color codes in tabular output")
+	f.BoolVar(&c.noColor, "no-color", os.Getenv("NO_COLOR") != "", "Disable ANSI color codes in tabular output")
 	f.BoolVar(&c.integrations, "integrations", false, "Same as `--relations`")
 	f.BoolVar(&c.relations, "relations", false, "Show relations section in tabular output")
 	f.BoolVar(&c.storage, "storage", false, "Show storage section in tabular output")
@@ -217,8 +217,9 @@ func (c *statusCommand) Init(args []string) error {
 		c.clock = clock.WallClock
 	}
 
-	if c.color && c.noColor {
-		return errors.Errorf("cannot mix --no-color and --color")
+	// Ensure that the user has not specified conflicting options.
+	if c.noColor && c.color {
+		return errors.Errorf("cannot mix --no-color and --color or NO_COLOR env var set")
 	}
 
 	return nil
@@ -360,16 +361,6 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	return nil
 }
 
-// statusCommandAllArgs returns the full juju command including all args
-func (c *statusCommand) statusCommandAllArgs(args []string) []string {
-	jujuStatusArgs := args
-
-	if !c.noColor {
-		jujuStatusArgs = append(jujuStatusArgs, "--color")
-	}
-	return jujuStatusArgs
-}
-
 func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
@@ -382,74 +373,31 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *statusCommand) formatYaml(writer io.Writer, value interface{}) error {
-	var noColor bool
-
-	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		return cmd.FormatYaml(writer, value)
-	}
-
-	if noColor && c.color {
+	if c.color {
 		return output.FormatYamlWithColor(writer, value)
 	}
-
-	if isTerminal(writer) && !noColor {
-		return output.FormatYamlWithColor(writer, value)
-	}
-
-	if !isTerminal(writer) && c.color {
-		return output.FormatYamlWithColor(writer, value)
-	}
-
 	return cmd.FormatYaml(writer, value)
 }
 
 func (c *statusCommand) formatOneline(writer io.Writer, value interface{}) error {
-	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		return FormatOneline(writer, false, value)
-	}
-
-	if c.color {
-		return FormatOneline(writer, c.color, value)
-	}
-
-	if isTerminal(writer) && !c.noColor {
-		return FormatOneline(writer, true, value)
-	}
-
-	if !isTerminal(writer) && c.color {
-		return FormatOneline(writer, true, value)
-	}
-
-	return FormatOneline(writer, false, value)
+	return FormatOneline(writer, c.color, value)
 }
 
 func (c *statusCommand) formatJson(writer io.Writer, value interface{}) error {
-	if _, ok := os.LookupEnv("NO_COLOR"); (ok || os.Getenv("TERM") == "dumb") && !c.color || c.noColor {
-		return cmd.FormatJson(writer, value)
-	}
 	// NO_COLOR="" and --color=true
 	if c.color {
 		return output.FormatJsonWithColor(writer, value)
 	}
-
-	if isTerminal(writer) && !c.noColor {
-		return output.FormatJsonWithColor(writer, value)
-	}
-
-	if !isTerminal(writer) && c.color {
-		return output.FormatJsonWithColor(writer, value)
-	}
-
 	return cmd.FormatJson(writer, value)
 }
 
 func (c *statusCommand) FormatTabular(writer io.Writer, value interface{}) error {
-	if c.noColor {
-		if _, ok := os.LookupEnv("NO_COLOR"); !ok {
-			defer os.Unsetenv("NO_COLOR")
-			os.Setenv("NO_COLOR", "")
-		}
-	}
-
 	return FormatTabular(writer, c.color, value)
+}
+
+func (c *statusCommand) terminalAllowsColor() bool {
+	if _, ok := os.LookupEnv("NO_COLOR"); ok {
+		return false
+	}
+	return isTerminal(os.Stdout) && os.Getenv("TERM") != "dumb"
 }
