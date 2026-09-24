@@ -87,16 +87,22 @@ On `main` you get `juju`, `jujuc`, `jujuagentd`, `containeragent`,
 `juju-metadata` and `pebble`. On `3.6` the agent binary is `jujud` rather than
 `jujuagentd`.
 
-Expect this to take a while. On `main`, `make install` took 18 minutes on 4
-CPUs with a warm Go module cache. Not all of that is compilation: building
-`jujuagentd` on `main` downloads a musl tarball of about 510 MB, and the dqlite
-dependencies after it. On a slow connection that download is most of the wait.
+Expect this to take a while. On `main`, `make install` took 15 to 18 minutes on
+4 CPUs. Not all of that is compilation: building `jujuagentd` on `main`
+downloads a musl tarball of about 510 MB, and the dqlite dependencies after it. On a slow connection that download is most of the wait.
 
 ```{note}
 If you're going to build both `main` and `3.6` on one machine, give each of
 them its own `GOBIN` and its own `JUJU_DATA`. The `*-operator-update` targets
 depend on `host-install`, which reinstalls the client into `$GOBIN`, so without
 that separation the second build replaces the first one's client.
+
+On a machine cloud, copy `credentials.yaml` from the first `JUJU_DATA` into the
+second before you bootstrap with it. The first client to bootstrap `localhost`
+adds a certificate called `juju` to LXD's trust store, and a second client
+can't add another one with the same name, so it fails with
+`adding certificate "juju": This "identity" entry already exists` followed by
+`credentials for cloud "localhost" not found`.
 ```
 
 ## Machine clouds
@@ -123,10 +129,6 @@ github.com/juju/juju tree
 
 ### Upgrade a controller you already have
 
-<!-- REVIEW: unverified. FINDINGS lists "upgrade-controller --build-agent" under
-     "Still not verified" - the flag and its help text were read from the source
-     (cmd/juju/commands/upgradecontroller.go), but the command was never run. -->
-
 On the second and later iterations you usually don't want a fresh controller.
 `juju upgrade-controller --build-agent` builds the agent the same way and puts
 it onto a controller you already have:
@@ -136,8 +138,17 @@ cd ~/juju
 juju upgrade-controller --build-agent
 ```
 
-The flag's own help text says "for development use only", which is exactly what
-this is.
+```text
+no prepackaged agent binaries available, using local agent binary 4.2-beta1.2 (built from source)
+best version:
+    4.2-beta1.2
+started upgrade to 4.2-beta1.2
+```
+
+Each upgrade adds one to the build number, so a controller bootstrapped at
+`4.2-beta1.1` moves to `4.2-beta1.2`, and `juju controllers` shows the new
+version once the agents have restarted, which takes a few seconds. The flag's
+own help text says "for development use only", which is exactly what this is.
 
 > See also: {ref}`command-juju-upgrade-controller`
 
@@ -314,11 +325,6 @@ image you imported and didn't go to the registry. `imagePullPolicy` is
 (`controller-config-seed` and `charm-init`) run that image.
 
 ## Juju 3.6
-
-<!-- REVIEW: "all of the above" overreaches slightly. FINDINGS ran only the
-     Kubernetes leg on 3.6; the machine-cloud steps (--build-agent against LXD)
-     were verified on main only. Nothing in the source suggests they differ
-     beyond the jujud name, but nobody has run them. -->
 
 All of the above works on `3.6`, with these differences:
 
