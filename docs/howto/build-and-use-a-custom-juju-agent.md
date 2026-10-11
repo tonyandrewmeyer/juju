@@ -302,27 +302,36 @@ agent-version: 4.2-beta1.1
 
 A released agent has no trailing `.1`, so that digit is the whole check.
 
-<!-- REVIEW: FINDINGS records the kubelet event below, and that it was read off
-     the controller pod, but not the command used to read it. The namespace is
-     the usual controller-<controller-name>. Check the command before this is
-     published. -->
-
 On Kubernetes there's a stronger check available. Ask the controller pod which
-image it actually used:
+image it actually used. Canonical K8s doesn't install `kubectl`, so use the
+client that comes with the `k8s` snap:
 
 ```text
-kubectl -n controller-ctest describe pod controller-0
+sudo k8s kubectl -n controller-ctest describe pod controller-0
 ```
+
+The `Events:` section at the end of the output has a line like this:
 
 ```text
-Normal  Pulled  pod/controller-0
-  Container image "ghcr.io/juju/jujud-operator:4.2-beta1.1" already present on machine
+Type    Reason  Age  From     Message
+Normal  Pulled  37s  kubelet  Container image "ghcr.io/juju/jujud-operator:4.2-beta1.1" already present on machine
 ```
 
-"already present on machine" is the line that matters: the kubelet found the
-image you imported and didn't go to the registry. `imagePullPolicy` is
-`IfNotPresent`. The `api-server` container and both init containers
-(`controller-config-seed` and `charm-init`) run that image.
+"already present on machine" is the line that matters. It means the kubelet
+found the image you imported and didn't go to the registry. The pod's
+`imagePullPolicy` is `IfNotPresent`. You'll see the line three times, once
+each for the `api-server` container and the `controller-config-seed` and
+`charm-init` init containers, which all run that image.
+
+Kubernetes keeps events for an hour by default. On a controller older than
+that, the `Events:` section is empty and this check has nothing to show.
+
+<!-- REVIEW: on the one run so far (2026-10-11), describe pod's "Image ID:"
+     for the three containers on the local image was a bare sha256:...,
+     while charm-base, pulled from ghcr.io, showed
+     ghcr.io/juju/charm-base@sha256:.... That would be a check that outlasts
+     the events, but it hasn't been compared against an operator image pulled
+     from the registry. Add it only if that holds. -->
 
 ## Juju 3.6
 
