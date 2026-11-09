@@ -43,6 +43,7 @@ List or move subnets <manage-subnets>
 Define resource tags in a cloud <define-resource-tags-in-a-cloud>
 Debug a Dqlite core dump issue <debug-a-dqlite-core-dump-issue>
 Compile and run Juju agents on different architectures <compile-and-run-juju-agents-on-different-architectures>
+Build and use a custom Juju agent <build-and-use-a-custom-juju-agent>
 Write a worker <writing-workers>
 
 ```
@@ -101,8 +102,9 @@ Charmed applications are deployed, configured, integrated, scaled, and more. Dep
 
 ## Developing and debugging Juju
 
-Developing and debugging Juju covers writing a worker, debugging a Dqlite core dump on a controller, and building Juju agents for other architectures and upgrading a controller with them.
+Developing and debugging Juju covers writing a worker, debugging a Dqlite core dump on a controller, building Juju agents for other architectures and upgrading a controller with them, and building and using a custom Juju agent.
 
 - {ref}`Write a worker <writing-workers>`
 - {ref}`Debug a Dqlite core dump issue <debug-a-dqlite-core-dump-issue>`
 - {ref}`Compile and run Juju agents on different architectures <compile-and-run-juju-agents-on-different-architectures>`
+- {ref}`Build and use a custom Juju agent <build-and-use-a-custom-juju-agent>`
